@@ -1,0 +1,3 @@
+#!/bin/sh
+if [ "$1" = "-v" ]; then echo "PHP ${FAKE_PHP_VERSION:-8.3.36} (cli) (built: Oct 1 2026)"; exit 0; fi
+if [ "$1" = "-i" ]; then cat "${FAKE_PHP_INI:-/dev/null}"; exit 0; fi

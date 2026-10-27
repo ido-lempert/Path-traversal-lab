@@ -1,0 +1,32 @@
+PASS php 8.3.36 patched | 0 | patched by version; patched by version; not detected; not detected
+PASS php 8.3.20 vulnerable | 1 | VULNERABLE by version; patched by version; not detected; not detected
+PASS php 8.1.5 unsupported | 1 | VULNERABLE unless vendor backport; patched by version; not detected; not detected
+PASS php 8.5.12 patched | 0 | patched by version; patched by version; not detected; not detected
+PASS php 8.5.11 vulnerable | 1 | VULNERABLE by version; patched by version; not detected; not detected
+PASS php 8.2.34 vulnerable | 1 | VULNERABLE by version; patched by version; not detected; not detected
+PASS php 8.2.35 patched | 0 | patched by version; patched by version; not detected; not detected
+PASS node 24.22.1 patched | 0 | patched by version; patched by version; not detected; not detected
+PASS node 24.22.0 vulnerable | 1 | patched by version; VULNERABLE by version; not detected; not detected
+PASS node 22.23.4 patched | 0 | patched by version; patched by version; not detected; not detected
+PASS node 20.9.0 unsupported | 1 | patched by version; VULNERABLE / unsupported; not detected; not detected
+PASS brotli 1.2.0 vulnerable | 1 | patched by version; patched by version; not detected; not detected; VULNERABLE by version
+PASS brotli 1.2.1 patched | 0 | patched by version; patched by version; not detected; not detected; patched by version
+PASS brotli 1.0.5 vulnerable | 1 | patched by version; patched by version; not detected; not detected; VULNERABLE by version
+PASS brotli 1.0.10 patched | 0 | patched by version; patched by version; not detected; not detected; patched by version
+PASS brotli 1.1.0 vulnerable | 1 | patched by version; patched by version; not detected; not detected; VULNERABLE by version
+PASS brotli 1.1.1 patched | 0 | patched by version; patched by version; not detected; not detected; patched by version
+PASS ini unmitigated on a VULNERABLE version | 1 | VULNERABLE by version; mitigation NOT applied; mitigation NOT applied; patched by version; not detected; not detected
+PASS ini mitigated on a VULNERABLE version is still vulnerable | 1 | VULNERABLE by version; exposure reduced; exposure reduced; patched by version; not detected; not detected
+PASS patched php, upload_progress still on (php.net 10-26 advice) | 0 | patched by version; mitigation NOT applied; patched by version; not detected; not detected
+PASS patched php, upload_progress off | 0 | patched by version; exposure reduced; patched by version; not detected; not detected
+PASS php 8.6.0 line needs review | 0 | review; patched by version; not detected; not detected
+PASS node 28.0.0 newer than advisory lines: review | 0 | patched by version; review; not detected; not detected
+PASS brotli 1.1.2 patched (above 1.1.1) | 0 | patched by version; patched by version; not detected; not detected; patched by version
+PASS brotli 1.0.2 below affected range: review | 0 | patched by version; patched by version; not detected; not detected; review
+PASS brotli 1.0.9 vulnerable | 1 | patched by version; patched by version; not detected; not detected; VULNERABLE by version
+PASS pip Brotli 1.2.0 vulnerable | 1 | patched by version; patched by version; VULNERABLE by version; not detected
+PASS pip Brotli 1.2.1 patched | 0 | patched by version; patched by version; patched by version; not detected
+PASS pip brotlicffi 1.2.0.0 vulnerable | 1 | patched by version; patched by version; not detected; VULNERABLE by version
+PASS pip brotlicffi 1.2.1.0 patched | 0 | patched by version; patched by version; not detected; patched by version
+PASS pip brotlicffi 1.2.1.1 patched | 0 | patched by version; patched by version; not detected; patched by version
+ALL PASS

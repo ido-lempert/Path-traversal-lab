@@ -1,0 +1,2 @@
+#!/bin/sh
+[ "$1" = "-v" ] && echo "v${FAKE_NODE_VERSION:-24.22.1}"

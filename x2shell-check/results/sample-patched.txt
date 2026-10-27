@@ -1,0 +1,15 @@
+Overall: no vulnerable versions detected on this machine (not a guarantee; see caveats)
+
+[php2shell] CVE-2026-109618,CVE-2026-109619
+  - php version: patched by version
+      PHP 8.3.36; fixed in 8.3.36 (php.net 2026-10-21). Distro backports may differ - verify vendor changelog for CVE-2026-109618/109619.
+
+[node2shell (brotli in node:zlib)] CVE-2026-111497
+  - node version: patched by version
+      Node 24.22.1; fixed in 24.22.1 (nodejs.org 2026-10-21, rated HIGH by Node).
+
+[python brotli packages (HTTP2Shell)] CVE-2026-111497
+  - pip Brotli: not detected
+      Brotli not installed for this interpreter
+  - pip brotlicffi: not detected
+      brotlicffi not installed for this interpreter
