@@ -1,0 +1,4 @@
+vulnerable | /hello.txt -> (200, 'hello from the public folder')
+vulnerable | /../secret.txt -> (200, 'this file is outside the public folder')
+fixed | /hello.txt -> (200, 'hello from the public folder')
+fixed | /../secret.txt -> (403, 'forbidden')
