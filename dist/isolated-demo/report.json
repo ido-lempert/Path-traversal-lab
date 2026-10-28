@@ -1,4 +1,12 @@
 {
+  "demo_context": {
+    "DEMONSTRATION_DATA_NOT_A_REAL_SYSTEM": true,
+    "annotation_origin": "PACKAGE-ONLY ANNOTATION: this demo_context block was added when packaging the report for GitHub. It is not tool output. Everything below this block is the unmodified generator output of `node bin/csi.js audit --live`.",
+    "environment": "Isolated test environment: a Linux user+mount+pid+network namespace with a minimal root filesystem built only for this test. No real host, container, cloud account or network was inspected or audited.",
+    "planted": "Every credential, file, permission and value in that environment (DB password, AWS keys, proxy credentials, SSH private key, docker.sock placeholder, file mode bits) was deliberately planted with INVENTED values. Their validity was never tested; no Docker daemon was running; no AWS or network calls were made.",
+    "measured": "The tool genuinely measured what it reports within that environment: file presence and mode bits, environment variable names, and its own redaction boundary (secret values appear as [REDACTED - value not collected]; all 7 planted secret strings appear 0 times in this report - verified for this run only, not a universal guarantee).",
+    "not_evidence": "These findings are a tool validation demo. They are NOT vulnerabilities in any real system. See PROVENANCE.md beside this file for the per-finding measured-vs-planted breakdown."
+  },
   "meta": {
     "tool": "container-security-inspector",
     "version": "0.1.0",

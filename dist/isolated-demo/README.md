@@ -13,9 +13,11 @@ The report demonstrates the redaction boundary: all 7 planted secret strings
 appear 0 times in the output; redacted fields show
 `[REDACTED - value not collected]`.
 
-- report.json / report.html: the audit output from that isolated run
-  (report.html carries a demo banner added for this package; otherwise it is
-  the generator's unmodified output).
+- report.json: opens with a clearly labeled package-only `demo_context`
+  annotation (synthetic environment, planted-vs-measured, no real system
+  audited); everything below it is the generator's unmodified output.
+- report.html: carries a demo banner added for this package; otherwise the
+  generator's unmodified output.
 - The isolated environment itself: env vars, /app/.env, /root/.aws/credentials,
   /root/.aws/config, /root/.ssh/id_rsa, and a world-writable docker.sock
   placeholder, all created for the test.
