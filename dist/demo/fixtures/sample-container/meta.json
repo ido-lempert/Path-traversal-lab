@@ -1,0 +1,7 @@
+{
+  "os": "Debian GNU/Linux 12 (bookworm)",
+  "kernel": "5.15.0-1051-aws",
+  "arch": "x64",
+  "platform": "linux",
+  "hostname": "payments-worker-7d9c4b"
+}

@@ -1,0 +1,352 @@
+{
+  "meta": {
+    "tool": "container-security-inspector",
+    "version": "0.1.0",
+    "generated_at": "2026-10-28T04:26:02.599Z",
+    "mode": "live (this container)",
+    "target_label": "this container",
+    "caveat": "This report is read-only: it changes no settings and sends nothing externally. Credential, token, password, and private-key values are never retained or exported: secret-looking variables are never read, private keys are never opened, allowlisted files are parsed in memory with secret values masked before anything is written to the report. Secret material appears by name, path, and permission bits only. It cannot see full IAM permissions from inside a container, and a container does not necessarily see host processes, interfaces, or connections. Untrusted code sharing this container could read or tamper with this report; sensitive environments need a separate authorized external AWS/IAM/VPC/CloudTrail review. In fixture mode, any sample values or file contents shown are SYNTHETIC and invented for the demo - they are not real secrets and were not read from any real environment."
+  },
+  "summary": {
+    "total": 5,
+    "counts": {
+      "high": 3,
+      "medium": 1,
+      "info": 1
+    }
+  },
+  "exposure_map": [
+    {
+      "area": "AWS identity & permissions",
+      "categories": [
+        "aws-identity"
+      ],
+      "summary": "Which AWS credential sources and endpoints code running here can reach (presence only, never values).",
+      "count": 1,
+      "max": "high"
+    },
+    {
+      "area": "Secrets & sensitive files",
+      "categories": [
+        "environment",
+        "filesystem"
+      ],
+      "summary": "Environment variable names, credential files, and their permission bits.",
+      "count": 2,
+      "max": "high"
+    },
+    {
+      "area": "OS & runtime",
+      "categories": [
+        "runtime"
+      ],
+      "summary": "Process user, Linux capabilities, and system posture.",
+      "count": 0,
+      "max": null
+    },
+    {
+      "area": "Network & internal services",
+      "categories": [
+        "network"
+      ],
+      "summary": "Listening sockets, established connections, DNS, routes, and proxy settings (passive only).",
+      "count": 1,
+      "max": "info"
+    },
+    {
+      "area": "Infrastructure mutation potential",
+      "categories": [
+        "mutation-potential"
+      ],
+      "summary": "Sockets, mounts, and tooling that could let code change infrastructure. Presence is a lead, not proof of permission.",
+      "count": 1,
+      "max": "high"
+    }
+  ],
+  "findings": [
+    {
+      "id": "INFRA-DOCKER-SOCKET-001",
+      "category": "mutation-potential",
+      "severity": "high",
+      "title": "Docker socket present; Unix permissions would allow the workload to connect (estimate, untested)",
+      "evidence": {
+        "confirmed": "Docker socket at /var/run/docker.sock (socket, mode 0666, readable by all users)",
+        "workload_user": "uid 65534"
+      },
+      "risk": "Confirmed: the socket exists, and its Unix permission bits combined with the workload's UID suggest the workload could connect (root ignores file permission bits; a world-writable socket accepts any local user). This is a permission-model estimate only: user namespaces, MAC/LSM policies, or the absence of a listening daemon can all change the real outcome, and no connection was attempted. Possible consequence, not confirmed here: if a Docker daemon answers on the other end, code in the container could control it - starting privileged containers, mounting host filesystems, reading other containers' data.",
+      "unverified": "Actual connectability (no connection attempted), whether a daemon is listening, and whether its API authorizes the connection.",
+      "verify": "From outside the container, check the container spec for the socket mount and whether the workload genuinely needs it.",
+      "recommendation": "Never mount /var/run/docker.sock into workloads. If a build needs it, use rootless builders or a constrained API proxy, and treat any container with socket access as trusted host-level code."
+    },
+    {
+      "id": "AWS-IDENTITY-001",
+      "category": "aws-identity",
+      "severity": "high",
+      "title": "AWS credential sources present (contents and validity unverified)",
+      "evidence": {
+        "confirmed": "AWS credentials file present on disk",
+        "workload_user": "uid 65534",
+        "real_secret_values_exposed": "false",
+        "Values (live run: real; secret values never collected)": "AWS_REGION = il-central-1"
+      },
+      "risk": "Confirmed: credential sources exist in places the workload can reach (a root workload can read any of them). Possible consequence, not confirmed here: if they hold valid credentials, code running in the container could act as that AWS identity.",
+      "unverified": "Whether the files/provider actually yield valid credentials, which identity they represent, and what that identity is allowed to do - none of this is visible from inside the container.",
+      "verify": "Authorized external check: IAM for the task/instance role, plus CloudTrail for its actual use.",
+      "recommendation": "Scope the task/instance role to the minimum required actions and resources, prefer the container credential provider over files on disk, and confirm actual permissions externally."
+    },
+    {
+      "id": "SECRETS-FILE-001",
+      "category": "filesystem",
+      "severity": "high",
+      "title": "Sensitive-looking files readable by all users in the container",
+      "evidence": {
+        "confirmed": "app/.env file at /app/.env (file, mode 0644, readable by all users); AWS credentials file at /root/.aws/credentials (file, mode 0644, readable by all users); AWS config file at /root/.aws/config (file, mode 0644, readable by all users); SSH private key at /root/.ssh/id_rsa (file, mode 0644, readable by all users)",
+        "Contents (live run: real, secrets redacted; private keys/tokens never opened)": "Real contents; secret values replaced with [REDACTED - value not collected]; private keys/tokens never opened.\n\n/app/.env\n---------\nDB_PASSWORD=[REDACTED - value not collected]\nAPP_NAME=billing-api\n\n/root/.aws/credentials\n----------------------\n[default]\naws_access_key_id = [REDACTED - value not collected]\naws_secret_access_key = [REDACTED - value not collected]\nregion = il-central-1\n\n/root/.aws/config\n-----------------\n[default]\nregion = il-central-1\noutput = json"
+      },
+      "risk": "Confirmed: files at conventional secret locations carry group/other read bits. Possible consequence, not confirmed here: if they contain real credentials, any process or user in the container - including untrusted code pulled from Git - could read them. A world-readable AWS config file may be benign; only its permissions are confirmed.",
+      "unverified": "Allowlisted files (.env, AWS config/credentials) are parsed in memory with secret values masked before storage; private keys and tokens are never opened. Which masked fields hold live secrets, and why the files are readable by all users.",
+      "verify": "Have the image owner confirm what these files contain and why they are world-readable.",
+      "recommendation": "Restrict to 0600 or tighter, chown to the runtime user, and remove credential files from images in favor of runtime secret injection."
+    },
+    {
+      "id": "SECRETS-ENV-001",
+      "category": "environment",
+      "severity": "medium",
+      "title": "Secret-like environment variable names present",
+      "evidence": {
+        "confirmed_names": "AWS_SECRET_ACCESS_KEY; DB_PASSWORD",
+        "Values (live run: real; secret values never collected)": "DB_PASSWORD = [REDACTED - value not collected]\nAWS_SECRET_ACCESS_KEY = [REDACTED - value not collected]"
+      },
+      "risk": "Confirmed: variable names matching secret patterns exist in the process environment; values were not read. Possible consequence, not confirmed here: if they hold live secrets, every process in the container can read them and they commonly leak into logs, crash reports, and child processes.",
+      "unverified": "Whether the values are real, current secrets or placeholders.",
+      "verify": "Ask the workload owner how these are populated.",
+      "recommendation": "Prefer mounted secret files with tight permissions or a secrets manager over environment variables; rotate anything that must stay in the environment."
+    },
+    {
+      "id": "NET-PROXY-001",
+      "category": "network",
+      "severity": "info",
+      "title": "Proxy environment variables configured",
+      "evidence": {
+        "confirmed_names": "HTTP_PROXY",
+        "Values (live run: real; secret values never collected)": "HTTP_PROXY = http://[credentials-redacted]@proxy.internal:3128"
+      },
+      "risk": "Confirmed: proxy variables exist (values not read). This is usually intentional corporate egress; it defines which egress path and inspection point the workload depends on.",
+      "unverified": "The proxy address and whether it matches policy.",
+      "verify": "Confirm the proxy configuration with the platform team.",
+      "recommendation": "Confirm the proxy configuration matches corporate policy and that NO_PROXY covers required internal endpoints."
+    }
+  ],
+  "next_steps": [
+    "Container-internal evidence cannot show what the available AWS role allows. Run a separate authorized external review (read-only audit account over IAM, VPC, and CloudTrail) before treating cloud permissions as known.",
+    "Treat tool and socket presence as leads, not proof: validate actual change permissions from outside the container before prioritizing remediation.",
+    "Address critical and high findings before running untrusted Git-sourced code in this container.",
+    "Untrusted code running in the same container can read or tamper with this report. In sensitive environments, treat the report as a local lead and verify externally."
+  ],
+  "facts": {
+    "runtime": {
+      "os_pretty_name": "Linux 7.2.9",
+      "kernel": "7.2.9",
+      "arch": "x64",
+      "platform": "linux",
+      "node_version": "v22.23.4",
+      "pid": 1,
+      "uid": 65534,
+      "gid": 65534,
+      "runs_as_root": false,
+      "source": "live container"
+    },
+    "environment": {
+      "total": 6,
+      "by_class": {
+        "standard": 2,
+        "aws": 1,
+        "secret-like": 2,
+        "proxy": 1
+      },
+      "variables": [
+        {
+          "name": "APP_NAME",
+          "class": "standard"
+        },
+        {
+          "name": "AWS_REGION",
+          "class": "aws"
+        },
+        {
+          "name": "AWS_SECRET_ACCESS_KEY",
+          "class": "secret-like"
+        },
+        {
+          "name": "DB_PASSWORD",
+          "class": "secret-like"
+        },
+        {
+          "name": "HTTP_PROXY",
+          "class": "proxy"
+        },
+        {
+          "name": "PATH",
+          "class": "standard"
+        }
+      ],
+      "secret_like_names": [
+        "AWS_SECRET_ACCESS_KEY",
+        "DB_PASSWORD"
+      ],
+      "proxy_names": [
+        "HTTP_PROXY"
+      ],
+      "values_read": true,
+      "values_note": "Live run: non-secret values shown; secret-looking variables were never read and appear as [REDACTED - value not collected].",
+      "live_values": "PATH = /usr/bin\nDB_PASSWORD = [REDACTED - value not collected]\nHTTP_PROXY = http://[credentials-redacted]@proxy.internal:3128\nAWS_REGION = il-central-1\nAWS_SECRET_ACCESS_KEY = [REDACTED - value not collected]\nAPP_NAME = billing-api",
+      "live_secret_lines": "DB_PASSWORD = [REDACTED - value not collected]\nAWS_SECRET_ACCESS_KEY = [REDACTED - value not collected]",
+      "live_aws_lines": "AWS_REGION = il-central-1",
+      "live_proxy_lines": "HTTP_PROXY = http://[credentials-redacted]@proxy.internal:3128",
+      "sample_values_synthetic": null,
+      "sample_secret_lines": null,
+      "sample_aws_lines": null,
+      "sample_proxy_lines": null
+    },
+    "filesystem": {
+      "sensitive": [
+        {
+          "id": "docker-socket",
+          "path": "/var/run/docker.sock",
+          "label": "Docker socket",
+          "is_socket": true,
+          "is_directory": false,
+          "mode": "0666",
+          "world_readable": true,
+          "world_writable": true,
+          "group_readable": true,
+          "contents_read": false
+        },
+        {
+          "id": "dotenv-app",
+          "path": "/app/.env",
+          "label": "app/.env file",
+          "is_socket": false,
+          "is_directory": false,
+          "mode": "0644",
+          "world_readable": true,
+          "world_writable": false,
+          "group_readable": true,
+          "contents_read": true,
+          "content_redacted": "DB_PASSWORD=[REDACTED - value not collected]\nAPP_NAME=billing-api"
+        },
+        {
+          "id": "aws-credentials",
+          "path": "/root/.aws/credentials",
+          "label": "AWS credentials file",
+          "is_socket": false,
+          "is_directory": false,
+          "mode": "0644",
+          "world_readable": true,
+          "world_writable": false,
+          "group_readable": true,
+          "contents_read": true,
+          "content_redacted": "[default]\naws_access_key_id = [REDACTED - value not collected]\naws_secret_access_key = [REDACTED - value not collected]\nregion = il-central-1"
+        },
+        {
+          "id": "aws-config",
+          "path": "/root/.aws/config",
+          "label": "AWS config file",
+          "is_socket": false,
+          "is_directory": false,
+          "mode": "0644",
+          "world_readable": true,
+          "world_writable": false,
+          "group_readable": true,
+          "contents_read": true,
+          "content_redacted": "[default]\nregion = il-central-1\noutput = json"
+        },
+        {
+          "id": "ssh-private-key",
+          "path": "/root/.ssh/id_rsa",
+          "label": "SSH private key",
+          "is_socket": false,
+          "is_directory": false,
+          "mode": "0644",
+          "world_readable": true,
+          "world_writable": false,
+          "group_readable": true,
+          "contents_read": false,
+          "content_policy": "never opened (private key/token class - presence and permissions only)"
+        }
+      ],
+      "sensitive_summary": [
+        "Docker socket at /var/run/docker.sock (socket, mode 0666, readable by all users)",
+        "app/.env file at /app/.env (file, mode 0644, readable by all users)",
+        "AWS credentials file at /root/.aws/credentials (file, mode 0644, readable by all users)",
+        "AWS config file at /root/.aws/config (file, mode 0644, readable by all users)",
+        "SSH private key at /root/.ssh/id_rsa (file, mode 0644, readable by all users)"
+      ],
+      "world_readable_summary": [
+        "app/.env file at /app/.env (file, mode 0644, readable by all users)",
+        "AWS credentials file at /root/.aws/credentials (file, mode 0644, readable by all users)",
+        "AWS config file at /root/.aws/config (file, mode 0644, readable by all users)",
+        "SSH private key at /root/.ssh/id_rsa (file, mode 0644, readable by all users)"
+      ],
+      "sockets_summary": [
+        "Docker socket at /var/run/docker.sock (socket, mode 0666, readable by all users)"
+      ],
+      "live_contents_block": "Real contents; secret values replaced with [REDACTED - value not collected]; private keys/tokens never opened.\n\n/app/.env\n---------\nDB_PASSWORD=[REDACTED - value not collected]\nAPP_NAME=billing-api\n\n/root/.aws/credentials\n----------------------\n[default]\naws_access_key_id = [REDACTED - value not collected]\naws_secret_access_key = [REDACTED - value not collected]\nregion = il-central-1\n\n/root/.aws/config\n-----------------\n[default]\nregion = il-central-1\noutput = json",
+      "sample_contents_block": null,
+      "note": "Private keys, shadow files and service-account tokens are never opened in any mode - presence and permission bits only. Live mode parses allowlisted files (.env-style, AWS config/credentials) in memory and masks secret values before anything is stored; masked bytes are never retained in or exported to the report. Fixture mode shows invented sample contents from the synthetic fixture, clearly labeled."
+    },
+    "linux_capabilities": {
+      "effective": [],
+      "notable": [],
+      "source": "proc/self/status CapEff"
+    },
+    "mounts": {
+      "all": [
+        {
+          "device": "proc",
+          "target": "/proc",
+          "fstype": "proc",
+          "writable": true,
+          "host_like_source": false,
+          "sensitive_target": false
+        }
+      ],
+      "host_like": [],
+      "writable_sensitive": [],
+      "writable_sensitive_summary": [],
+      "source": "proc/mounts"
+    },
+    "network": {
+      "listening": [],
+      "established": [],
+      "dns": [],
+      "default_gateway": null,
+      "listening_summary": [],
+      "established_summary": [],
+      "aws_link_local_endpoints_in_use": [],
+      "aws_link_local_summary": [],
+      "active_probes_performed": false,
+      "note": "Passive read of socket tables only. A container sees its own network namespace, not necessarily host interfaces or other containers. Active connection tests run only against explicitly pre-approved targets and none ran here."
+    },
+    "aws_identity": {
+      "platform_hints": [],
+      "credential_providers_present": [
+        {
+          "source": "AWS credentials file present on disk",
+          "values_exposed": false
+        }
+      ],
+      "credential_providers_summary": [
+        "AWS credentials file present on disk"
+      ],
+      "credential_endpoints_in_use": [],
+      "region_variable_present": true,
+      "caveat": "Full IAM permissions cannot be inferred from inside the container alone. Credential-provider presence shows a role may be available to code running here; confirming what that role can do requires an authorized IAM/CloudTrail review from outside."
+    },
+    "installed_tools": {
+      "found": [],
+      "found_summary": [],
+      "note": "Presence of a tool does not prove the identity available to it can change resources; actual permissions need validation from outside the container."
+    }
+  }
+}

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Container Security Inspector - audit report</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; margin: 0; background: #f6f7f9; color: #202124; }
+  header { background: #0b2545; color: #fff; padding: 38px 32px 30px; }
+  header h1 { margin: 0 0 6px; font-size: 22px; }
+  header .sub { opacity: .85; font-size: 13px; }
+  main { padding: 24px 32px 48px; max-width: 1280px; margin: 0 auto; }
+  .cards { display: flex; gap: 12px; margin: 20px 0 28px; flex-wrap: wrap; }
+  .card { background: #fff; border: 1px solid #e0e3e7; border-top: 4px solid #ccc; border-radius: 8px; padding: 12px 20px; min-width: 110px; }
+  .card .num { font-size: 28px; font-weight: 700; }
+  .card .lbl { text-transform: uppercase; font-size: 11px; letter-spacing: .08em; color: #5f6368; }
+  h2 { font-size: 16px; margin: 28px 0 12px; }
+  .expo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; }
+  .expo { background: #fff; border: 1px solid #e0e3e7; border-radius: 8px; padding: 14px 16px; }
+  .expo-h { font-weight: 600; margin-bottom: 6px; }
+  .expo-n { color: #fff; font-size: 11px; border-radius: 10px; padding: 2px 8px; font-weight: 600; }
+  .expo-b { font-size: 13px; color: #444; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e0e3e7; border-radius: 8px; overflow: hidden; }
+  table { table-layout: fixed; }
+  col.c-sev { width: 104px; } col.c-find { width: 240px; } col.c-ev { width: 27%; }
+  th, td { text-align: left; vertical-align: top; padding: 10px 12px; font-size: 13px; border-bottom: 1px solid #eceef1; word-break: break-word; overflow-wrap: anywhere; }
+  th { background: #f0f2f5; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: #5f6368; }
+  .badge { color: #fff; white-space: nowrap; display: inline-block; border-radius: 10px; padding: 3px 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+  .id { color: #5f6368; font-size: 12px; margin-top: 3px; }
+  .ek { color: #5f6368; font-family: ui-monospace, monospace; font-size: 12px; }
+  .unv { margin-top: 6px; color: #7a5c00; font-size: 12px; }
+  .evdet { margin: 4px 0 2px; }
+  .evdet > summary { cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #1a73e8; user-select: none; }
+  .evdet > summary::before { content: '👁'; } /* eye: values hidden by default */
+  .evdet[open] > summary::before { content: '👁'; opacity: .45; }
+  .evdet > summary::-webkit-details-marker { display: none; }
+  .evdet > summary::after { content: 'hidden by default - visual concealment only, not encryption'; font-size: 10.5px; color: #9aa0a6; }
+  .evdet[open] > summary::after { content: none; }
+  .evpre { white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; line-height: 1.45; background: #f6f8fa; border: 1px solid #e0e3e7; border-radius: 6px; padding: 8px 10px; margin: 4px 0 2px; }
+  @media print {
+    body { background: #fff; }
+    table, thead, tbody, tr, td { display: block; width: 100%; }
+    thead { display: none; }
+    colgroup { display: none; }
+    tr { border: 1px solid #d7dbe0; border-radius: 8px; margin-bottom: 12px; padding: 8px 4px; break-inside: avoid; page-break-inside: avoid; }
+    td { border-bottom: none; padding: 6px 12px; }
+    td::before { content: attr(data-label); display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #5f6368; margin-bottom: 2px; }
+    .expo, .card, .meta, .caveat { break-inside: avoid; page-break-inside: avoid; }
+  }
+  @media (max-width: 700px) {
+    main { padding: 16px 12px 40px; }
+    header { padding: 48px 16px 26px; }
+    table, thead, tbody, tr, td { display: block; width: 100%; }
+    thead { display: none; }
+    colgroup { display: none; }
+    tr { border-bottom: 2px solid #d7dbe0; padding: 8px 0; }
+    td { border-bottom: none; padding: 6px 12px; }
+    td::before { content: attr(data-label); display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #5f6368; margin-bottom: 2px; }
+  }
+  .note { font-size: 13px; color: #5f6368; max-width: 900px; }
+  .meta, .caveat { background: #fff; border: 1px solid #e0e3e7; border-radius: 8px; padding: 14px 16px; font-size: 13px; color: #444; }
+  .caveat { border-left: 4px solid #b58900; margin-top: 16px; }
+  ul { margin: 8px 0 0; padding-left: 20px; }
+  li { margin-bottom: 6px; }
+</style></head>
+<body>
+<div style="background:#7c2d12;color:#fff;padding:14px 18px;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;line-height:1.5;border-bottom:4px solid #f97316">
+<strong style="font-size:16px">DEMONSTRATION DATA - NOT A REAL SYSTEM</strong><br>
+This report was produced inside an isolated test environment (a Linux namespace with a root filesystem built only for this test). Every credential, file, permission and value shown here was <strong>deliberately planted with invented values</strong>. Nothing in this report comes from any real host, container, cloud account or network. See <strong>PROVENANCE.md</strong> for the per-finding breakdown of what was measured vs. what was planted.
+</div>
+<header>
+  <h1>Container Security Inspector</h1>
+  <div class="sub">Read-only audit · this container · 2026-10-28T04:26:02.599Z · no active network probes · secret values never retained or exported</div>
+</header>
+<main>
+  <div class="cards">
+    <div class="card" style="border-top-color:#b3261e">
+      <div class="num" style="color:#b3261e">0</div>
+      <div class="lbl">critical</div>
+    </div>
+    <div class="card" style="border-top-color:#d4550a">
+      <div class="num" style="color:#d4550a">3</div>
+      <div class="lbl">high</div>
+    </div>
+    <div class="card" style="border-top-color:#b58900">
+      <div class="num" style="color:#b58900">1</div>
+      <div class="lbl">medium</div>
+    </div>
+    <div class="card" style="border-top-color:#1a73e8">
+      <div class="num" style="color:#1a73e8">0</div>
+      <div class="lbl">low</div>
+    </div>
+    <div class="card" style="border-top-color:#5f6368">
+      <div class="num" style="color:#5f6368">1</div>
+      <div class="lbl">info</div>
+    </div></div>
+
+  <h2>Exposure map</h2>
+  <div class="expo-grid">
+    <div class="expo">
+      <div class="expo-h">AWS identity &amp; permissions <span class="expo-n" style="background:#d4550a">1 finding</span></div>
+      <div class="expo-b">Which AWS credential sources and endpoints code running here can reach (presence only, never values).</div>
+    </div>
+    <div class="expo">
+      <div class="expo-h">Secrets &amp; sensitive files <span class="expo-n" style="background:#d4550a">2 findings</span></div>
+      <div class="expo-b">Environment variable names, credential files, and their permission bits.</div>
+    </div>
+    <div class="expo">
+      <div class="expo-h">OS &amp; runtime <span class="expo-n" style="background:#9aa0a6">0 findings</span></div>
+      <div class="expo-b">Process user, Linux capabilities, and system posture.</div>
+    </div>
+    <div class="expo">
+      <div class="expo-h">Network &amp; internal services <span class="expo-n" style="background:#5f6368">1 finding</span></div>
+      <div class="expo-b">Listening sockets, established connections, DNS, routes, and proxy settings (passive only).</div>
+    </div>
+    <div class="expo">
+      <div class="expo-h">Infrastructure mutation potential <span class="expo-n" style="background:#d4550a">1 finding</span></div>
+      <div class="expo-b">Sockets, mounts, and tooling that could let code change infrastructure. Presence is a lead, not proof of permission.</div>
+    </div></div>
+
+  <h2 id="findings">Findings (5)</h2>
+  <p class="note">Evidence shows confirmed facts only. Risk describes possible consequences when the relevant authorization, credential validity, or business need is unknown - those are listed as "Not verified" and were not tested (no connections, no cloud calls, no secret values).</p>
+  <table>
+    <colgroup><col class="c-sev"><col class="c-find"><col class="c-ev"><col><col></colgroup>
+    <thead><tr><th>Severity</th><th>Finding</th><th>Evidence</th><th>Risk</th><th>Recommendation</th></tr></thead>
+    <tbody>
+    <tr>
+      <td data-label="Severity"><span class="badge" style="background:#d4550a">high</span></td>
+      <td data-label="Finding"><strong>Docker socket present; Unix permissions would allow the workload to connect (estimate, untested)</strong><div class="id">INFRA-DOCKER-SOCKET-001 · mutation-potential</div></td>
+      <td data-label="Evidence (confirmed)"><div><span class="ek">confirmed</span>: Docker socket at /var/run/docker.sock (socket, mode 0666, readable by all users)</div><div><span class="ek">workload_user</span>: uid 65534</div><div class="unv">Not verified: Actual connectability (no connection attempted), whether a daemon is listening, and whether its API authorizes the connection.</div></td>
+      <td data-label="Risk">Confirmed: the socket exists, and its Unix permission bits combined with the workload's UID suggest the workload could connect (root ignores file permission bits; a world-writable socket accepts any local user). This is a permission-model estimate only: user namespaces, MAC/LSM policies, or the absence of a listening daemon can all change the real outcome, and no connection was attempted. Possible consequence, not confirmed here: if a Docker daemon answers on the other end, code in the container could control it - starting privileged containers, mounting host filesystems, reading other containers' data.</td>
+      <td data-label="Recommendation">Never mount /var/run/docker.sock into workloads. If a build needs it, use rootless builders or a constrained API proxy, and treat any container with socket access as trusted host-level code.<div class="unv">Verify: From outside the container, check the container spec for the socket mount and whether the workload genuinely needs it.</div></td>
+    </tr>
+    <tr>
+      <td data-label="Severity"><span class="badge" style="background:#d4550a">high</span></td>
+      <td data-label="Finding"><strong>AWS credential sources present (contents and validity unverified)</strong><div class="id">AWS-IDENTITY-001 · aws-identity</div></td>
+      <td data-label="Evidence (confirmed)"><div><span class="ek">confirmed</span>: AWS credentials file present on disk</div><div><span class="ek">workload_user</span>: uid 65534</div><div><span class="ek">real_secret_values_exposed</span>: false</div><div><span class="ek">Values (live run: real; secret values never collected)</span>: AWS_REGION = il-central-1</div><div class="unv">Not verified: Whether the files/provider actually yield valid credentials, which identity they represent, and what that identity is allowed to do - none of this is visible from inside the container.</div></td>
+      <td data-label="Risk">Confirmed: credential sources exist in places the workload can reach (a root workload can read any of them). Possible consequence, not confirmed here: if they hold valid credentials, code running in the container could act as that AWS identity.</td>
+      <td data-label="Recommendation">Scope the task/instance role to the minimum required actions and resources, prefer the container credential provider over files on disk, and confirm actual permissions externally.<div class="unv">Verify: Authorized external check: IAM for the task/instance role, plus CloudTrail for its actual use.</div></td>
+    </tr>
+    <tr>
+      <td data-label="Severity"><span class="badge" style="background:#d4550a">high</span></td>
+      <td data-label="Finding"><strong>Sensitive-looking files readable by all users in the container</strong><div class="id">SECRETS-FILE-001 · filesystem</div></td>
+      <td data-label="Evidence (confirmed)"><div><span class="ek">confirmed</span>: app/.env file at /app/.env (file, mode 0644, readable by all users); AWS credentials file at /root/.aws/credentials (file, mode 0644, readable by all users); AWS config file at /root/.aws/config (file, mode 0644, readable by all users); SSH private key at /root/.ssh/id_rsa (file, mode 0644, readable by all users)</div><div><span class="ek">Contents (live run: real, secrets redacted; private keys/tokens never opened)</span><details class="evdet"><summary>Show / hide</summary><pre class="evpre">Real contents; secret values replaced with [REDACTED - value not collected]; private keys/tokens never opened.
+
+/app/.env
+---------
+DB_PASSWORD=[REDACTED - value not collected]
+APP_NAME=billing-api
+
+/root/.aws/credentials
+----------------------
+[default]
+aws_access_key_id = [REDACTED - value not collected]
+aws_secret_access_key = [REDACTED - value not collected]
+region = il-central-1
+
+/root/.aws/config
+-----------------
+[default]
+region = il-central-1
+output = json</pre></details></div><div class="unv">Not verified: Allowlisted files (.env, AWS config/credentials) are parsed in memory with secret values masked before storage; private keys and tokens are never opened. Which masked fields hold live secrets, and why the files are readable by all users.</div></td>
+      <td data-label="Risk">Confirmed: files at conventional secret locations carry group/other read bits. Possible consequence, not confirmed here: if they contain real credentials, any process or user in the container - including untrusted code pulled from Git - could read them. A world-readable AWS config file may be benign; only its permissions are confirmed.</td>
+      <td data-label="Recommendation">Restrict to 0600 or tighter, chown to the runtime user, and remove credential files from images in favor of runtime secret injection.<div class="unv">Verify: Have the image owner confirm what these files contain and why they are world-readable.</div></td>
+    </tr>
+    <tr>
+      <td data-label="Severity"><span class="badge" style="background:#b58900">medium</span></td>
+      <td data-label="Finding"><strong>Secret-like environment variable names present</strong><div class="id">SECRETS-ENV-001 · environment</div></td>
+      <td data-label="Evidence (confirmed)"><div><span class="ek">confirmed_names</span>: AWS_SECRET_ACCESS_KEY; DB_PASSWORD</div><div><span class="ek">Values (live run: real; secret values never collected)</span><details class="evdet"><summary>Show / hide</summary><pre class="evpre">DB_PASSWORD = [REDACTED - value not collected]
+AWS_SECRET_ACCESS_KEY = [REDACTED - value not collected]</pre></details></div><div class="unv">Not verified: Whether the values are real, current secrets or placeholders.</div></td>
+      <td data-label="Risk">Confirmed: variable names matching secret patterns exist in the process environment; values were not read. Possible consequence, not confirmed here: if they hold live secrets, every process in the container can read them and they commonly leak into logs, crash reports, and child processes.</td>
+      <td data-label="Recommendation">Prefer mounted secret files with tight permissions or a secrets manager over environment variables; rotate anything that must stay in the environment.<div class="unv">Verify: Ask the workload owner how these are populated.</div></td>
+    </tr>
+    <tr>
+      <td data-label="Severity"><span class="badge" style="background:#5f6368">info</span></td>
+      <td data-label="Finding"><strong>Proxy environment variables configured</strong><div class="id">NET-PROXY-001 · network</div></td>
+      <td data-label="Evidence (confirmed)"><div><span class="ek">confirmed_names</span>: HTTP_PROXY</div><div><span class="ek">Values (live run: real; secret values never collected)</span>: HTTP_PROXY = http://[credentials-redacted]@proxy.internal:3128</div><div class="unv">Not verified: The proxy address and whether it matches policy.</div></td>
+      <td data-label="Risk">Confirmed: proxy variables exist (values not read). This is usually intentional corporate egress; it defines which egress path and inspection point the workload depends on.</td>
+      <td data-label="Recommendation">Confirm the proxy configuration matches corporate policy and that NO_PROXY covers required internal endpoints.<div class="unv">Verify: Confirm the proxy configuration with the platform team.</div></td>
+    </tr></tbody>
+  </table>
+
+  <h2>Recommended next steps</h2>
+  <div class="meta"><ul><li>Container-internal evidence cannot show what the available AWS role allows. Run a separate authorized external review (read-only audit account over IAM, VPC, and CloudTrail) before treating cloud permissions as known.</li><li>Treat tool and socket presence as leads, not proof: validate actual change permissions from outside the container before prioritizing remediation.</li><li>Address critical and high findings before running untrusted Git-sourced code in this container.</li><li>Untrusted code running in the same container can read or tamper with this report. In sensitive environments, treat the report as a local lead and verify externally.</li></ul></div>
+
+  <div class="caveat">
+    <strong>Scope and limits.</strong> This report is read-only: it changes no settings and sends nothing externally. Credential, token, password, and private-key values are never retained or exported: secret-looking variables are never read, private keys are never opened, allowlisted files are parsed in memory with secret values masked before anything is written to the report. Secret material appears by name, path, and permission bits only. It cannot see full IAM permissions from inside a container, and a container does not necessarily see host processes, interfaces, or connections. Untrusted code sharing this container could read or tamper with this report; sensitive environments need a separate authorized external AWS/IAM/VPC/CloudTrail review. In fixture mode, any sample values or file contents shown are SYNTHETIC and invented for the demo - they are not real secrets and were not read from any real environment.
+  </div>
+</main>
+</body></html>

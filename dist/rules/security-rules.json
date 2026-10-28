@@ -1,0 +1,310 @@
+[
+  {
+    "id": "INFRA-DOCKER-SOCKET-001",
+    "category": "mutation-potential",
+    "severity": "high",
+    "title": "Docker socket present; Unix permissions would allow the workload to connect (estimate, untested)",
+    "when": [
+      {
+        "fact": "filesystem.sensitive",
+        "op": "anyMatch",
+        "match": {
+          "is_socket": true
+        }
+      },
+      {
+        "any": [
+          {
+            "fact": "filesystem.sensitive",
+            "op": "anyMatch",
+            "match": {
+              "is_socket": true,
+              "world_writable": true
+            }
+          },
+          {
+            "fact": "runtime.runs_as_root",
+            "op": "eq",
+            "value": true
+          }
+        ]
+      }
+    ],
+    "evidence": {
+      "confirmed": "{{filesystem.sockets_summary}}",
+      "workload_user": "uid {{runtime.uid}}"
+    },
+    "risk": "Confirmed: the socket exists, and its Unix permission bits combined with the workload's UID suggest the workload could connect (root ignores file permission bits; a world-writable socket accepts any local user). This is a permission-model estimate only: user namespaces, MAC/LSM policies, or the absence of a listening daemon can all change the real outcome, and no connection was attempted. Possible consequence, not confirmed here: if a Docker daemon answers on the other end, code in the container could control it - starting privileged containers, mounting host filesystems, reading other containers' data.",
+    "unverified": "Actual connectability (no connection attempted), whether a daemon is listening, and whether its API authorizes the connection.",
+    "verify": "From outside the container, check the container spec for the socket mount and whether the workload genuinely needs it.",
+    "recommendation": "Never mount /var/run/docker.sock into workloads. If a build needs it, use rootless builders or a constrained API proxy, and treat any container with socket access as trusted host-level code."
+  },
+  {
+    "id": "INFRA-DOCKER-SOCKET-002",
+    "category": "mutation-potential",
+    "severity": "medium",
+    "title": "Docker socket present; Unix permission bits would deny the workload (estimate, untested)",
+    "when": [
+      {
+        "fact": "filesystem.sensitive",
+        "op": "anyMatch",
+        "match": {
+          "is_socket": true
+        }
+      },
+      {
+        "not": {
+          "any": [
+            {
+              "fact": "filesystem.sensitive",
+              "op": "anyMatch",
+              "match": {
+                "is_socket": true,
+                "world_writable": true
+              }
+            },
+            {
+              "fact": "runtime.runs_as_root",
+              "op": "eq",
+              "value": true
+            }
+          ]
+        }
+      }
+    ],
+    "evidence": {
+      "confirmed": "{{filesystem.sockets_summary}}",
+      "workload_user": "uid {{runtime.uid}} (not the socket owner, no write permission)"
+    },
+    "risk": "Confirmed: the socket file exists, and its permission bits plus the workload UID suggest the workload could not connect. This is a permission-model estimate only - user namespaces, group membership, ACLs, or MAC/LSM policy can change the real outcome, and no connection was attempted. The exposure becomes live if the user, group, or permissions change.",
+    "unverified": "Actual connectability (no connection attempted), and whether anything else in the container runs as the socket owner.",
+    "verify": "Check the container spec; if nothing needs the socket, remove the mount rather than relying on permission bits.",
+    "recommendation": "Remove the socket mount; defense through file permissions is fragile against user/umask changes."
+  },
+  {
+    "id": "INFRA-HOST-MOUNT-001",
+    "category": "mutation-potential",
+    "severity": "high",
+    "title": "Host-like source mounted writable into the container",
+    "when": [
+      {
+        "fact": "mounts.writable_sensitive",
+        "op": "nonEmpty"
+      }
+    ],
+    "evidence": {
+      "confirmed": "{{mounts.writable_sensitive_summary}}"
+    },
+    "risk": "Confirmed: the mount table shows a host device or sensitive path mounted writable. Possible consequence, not confirmed here: if the source is a real host path, container code could modify files outside its own filesystem, including host or neighboring-service configuration.",
+    "unverified": "What the source device actually backs and whether anything in the workload writes to it.",
+    "verify": "Inspect the container/orchestration spec for this mount's intent.",
+    "recommendation": "Remount read-only where possible, scope the mount to the narrowest subdirectory, and drop it entirely if the workload does not need it."
+  },
+  {
+    "id": "AWS-IDENTITY-001",
+    "category": "aws-identity",
+    "severity": "high",
+    "title": "AWS credential sources present (contents and validity unverified)",
+    "when": [
+      {
+        "fact": "aws_identity.credential_providers_present",
+        "op": "nonEmpty"
+      }
+    ],
+    "evidence": {
+      "confirmed": "{{aws_identity.credential_providers_summary}}",
+      "workload_user": "uid {{runtime.uid}}",
+      "Sample values (SYNTHETIC - invented for demo, not real)": "{{environment.sample_aws_lines}}",
+      "real_secret_values_exposed": "false",
+      "Values (live run: real; secret values never collected)": "{{environment.live_aws_lines}}"
+    },
+    "risk": "Confirmed: credential sources exist in places the workload can reach (a root workload can read any of them). Possible consequence, not confirmed here: if they hold valid credentials, code running in the container could act as that AWS identity.",
+    "unverified": "Whether the files/provider actually yield valid credentials, which identity they represent, and what that identity is allowed to do - none of this is visible from inside the container.",
+    "verify": "Authorized external check: IAM for the task/instance role, plus CloudTrail for its actual use.",
+    "recommendation": "Scope the task/instance role to the minimum required actions and resources, prefer the container credential provider over files on disk, and confirm actual permissions externally."
+  },
+  {
+    "id": "AWS-IDENTITY-002",
+    "category": "aws-identity",
+    "severity": "medium",
+    "title": "AWS metadata or credentials endpoint in active use",
+    "when": [
+      {
+        "fact": "network.aws_link_local_endpoints_in_use",
+        "op": "nonEmpty"
+      }
+    ],
+    "evidence": {
+      "confirmed": "{{network.aws_link_local_summary}}",
+      "Sample values (SYNTHETIC - invented for demo, not real)": "{{environment.sample_aws_lines}}",
+      "Values (live run: real; secret values never collected)": "{{environment.live_aws_lines}}"
+    },
+    "risk": "Confirmed: an established connection to a link-local AWS endpoint exists, so a credential/metadata path is not just configured but in use. Possible consequence, not confirmed here: the credentials being fetched could be over-broad.",
+    "unverified": "Which process made the connection, what it fetched, and the permissions of the identity behind the endpoint.",
+    "verify": "Correlate with CloudTrail and the task definition; if the workload does not need the endpoint, block link-local access (IMDS hop limit or network policy).",
+    "recommendation": "Verify the workload genuinely needs the endpoint; otherwise block link-local access."
+  },
+  {
+    "id": "SECRETS-ENV-001",
+    "category": "environment",
+    "severity": "medium",
+    "title": "Secret-like environment variable names present",
+    "when": [
+      {
+        "fact": "environment.secret_like_names",
+        "op": "nonEmpty"
+      }
+    ],
+    "evidence": {
+      "confirmed_names": "{{environment.secret_like_names}}",
+      "Sample values (SYNTHETIC - invented for demo, not real)": "{{environment.sample_secret_lines}}",
+      "Values (live run: real; secret values never collected)": "{{environment.live_secret_lines}}"
+    },
+    "risk": "Confirmed: variable names matching secret patterns exist in the process environment; values were not read. Possible consequence, not confirmed here: if they hold live secrets, every process in the container can read them and they commonly leak into logs, crash reports, and child processes.",
+    "unverified": "Whether the values are real, current secrets or placeholders.",
+    "verify": "Ask the workload owner how these are populated.",
+    "recommendation": "Prefer mounted secret files with tight permissions or a secrets manager over environment variables; rotate anything that must stay in the environment."
+  },
+  {
+    "id": "SECRETS-FILE-001",
+    "category": "filesystem",
+    "severity": "high",
+    "title": "Sensitive-looking files readable by all users in the container",
+    "when": [
+      {
+        "fact": "filesystem.sensitive",
+        "op": "anyMatch",
+        "match": {
+          "world_readable": true,
+          "is_socket": false
+        }
+      }
+    ],
+    "evidence": {
+      "confirmed": "{{filesystem.world_readable_summary}}",
+      "Sample file contents (SYNTHETIC - invented for demo, not real)": "{{filesystem.sample_contents_block}}",
+      "Contents (live run: real, secrets redacted; private keys/tokens never opened)": "{{filesystem.live_contents_block}}"
+    },
+    "risk": "Confirmed: files at conventional secret locations carry group/other read bits. Possible consequence, not confirmed here: if they contain real credentials, a process with sufficient DAC access (mode bits plus parent-directory traversal and any MAC/LSM policy) - including untrusted code pulled from Git - could potentially read them. A world-readable AWS config file may be benign; only its permissions are confirmed.",
+    "unverified": "Allowlisted files (.env, AWS config/credentials) are parsed in memory with secret values masked before storage; private keys and tokens are never opened. Which masked fields hold live secrets, and why the files are readable by all users.",
+    "verify": "Have the image owner confirm what these files contain and why they are world-readable.",
+    "recommendation": "Restrict to 0600 or tighter, chown to the runtime user, and remove credential files from images in favor of runtime secret injection."
+  },
+  {
+    "id": "SYSTEM-ROOT-001",
+    "category": "runtime",
+    "severity": "medium",
+    "title": "Process runs as root (UID 0)",
+    "when": [
+      {
+        "fact": "runtime.runs_as_root",
+        "op": "eq",
+        "value": true
+      }
+    ],
+    "evidence": {
+      "confirmed": "uid {{runtime.uid}}, gid {{runtime.gid}}"
+    },
+    "risk": "Confirmed: the process runs as UID 0 inside the container. Consequence: file permission bits, capabilities, and mounts all become more powerful for any code executed here; combined with other findings (socket, credential files) this is what turns their presence into reachability.",
+    "unverified": "Whether user-namespace remapping limits what root means outside the container.",
+    "verify": "Check the runtime for userns-remap or an equivalent.",
+    "recommendation": "Run as a dedicated non-root user (USER directive / runAsNonRoot), and drop setuid binaries from the image."
+  },
+  {
+    "id": "SYSTEM-CAPS-001",
+    "category": "runtime",
+    "severity": "high",
+    "title": "Notable Linux capabilities granted to the container",
+    "when": [
+      {
+        "fact": "linux_capabilities.notable",
+        "op": "nonEmpty"
+      }
+    ],
+    "evidence": {
+      "confirmed": "{{linux_capabilities.notable}}"
+    },
+    "risk": "Confirmed: these capabilities are in the process's effective set - this is granted, not speculative. Consequence: capabilities such as SYS_ADMIN, SYS_PTRACE, or DAC_READ_SEARCH weaken the container boundary; SYS_ADMIN allows many operations normally reserved for host root.",
+    "unverified": "Whether the workload actually needs any of them.",
+    "verify": "Compare against the container spec's cap-add list.",
+    "recommendation": "Drop all capabilities and add back only the ones the workload demonstrably needs (--cap-drop=ALL plus specific --cap-add)."
+  },
+  {
+    "id": "NET-LISTEN-001",
+    "category": "network",
+    "severity": "low",
+    "title": "Listening sockets inside the container",
+    "when": [
+      {
+        "fact": "network.listening",
+        "op": "nonEmpty"
+      }
+    ],
+    "evidence": {
+      "confirmed": "{{network.listening_summary}}"
+    },
+    "risk": "Confirmed: these sockets listen in the container's namespace. Exposure depends on published ports and network policy, which are not visible from inside.",
+    "unverified": "Which of these are reachable from outside the container.",
+    "verify": "Check published ports and network policy from outside.",
+    "recommendation": "Bind to localhost where possible and confirm published ports and network policy match the intended exposure."
+  },
+  {
+    "id": "NET-PROXY-001",
+    "category": "network",
+    "severity": "info",
+    "title": "Proxy environment variables configured",
+    "when": [
+      {
+        "fact": "environment.proxy_names",
+        "op": "nonEmpty"
+      }
+    ],
+    "evidence": {
+      "confirmed_names": "{{environment.proxy_names}}",
+      "Sample values (SYNTHETIC - invented for demo, not real)": "{{environment.sample_proxy_lines}}",
+      "Values (live run: real; secret values never collected)": "{{environment.live_proxy_lines}}"
+    },
+    "risk": "Confirmed: proxy variables exist (values not read). This is usually intentional corporate egress; it defines which egress path and inspection point the workload depends on.",
+    "unverified": "The proxy address and whether it matches policy.",
+    "verify": "Confirm the proxy configuration with the platform team.",
+    "recommendation": "Confirm the proxy configuration matches corporate policy and that NO_PROXY covers required internal endpoints."
+  },
+  {
+    "id": "NET-INTERNAL-001",
+    "category": "network",
+    "severity": "low",
+    "title": "Established connections to private addresses (business need not assessed)",
+    "when": [
+      {
+        "fact": "network.established",
+        "op": "nonEmpty"
+      }
+    ],
+    "evidence": {
+      "confirmed": "{{network.established_summary}}"
+    },
+    "risk": "Confirmed: established connections to private-address endpoints exist. These may be entirely intended (for example the application's own database). Only if a reachable service has no business need does it widen lateral-movement room for untrusted code.",
+    "unverified": "What each endpoint is and whether the connection is intended.",
+    "verify": "Map each connection to a workload owner and business need.",
+    "recommendation": "Map each connection to a business need and restrict the rest with network policy or security groups."
+  },
+  {
+    "id": "TOOLS-AWS-001",
+    "category": "mutation-potential",
+    "severity": "info",
+    "title": "Cloud or container tooling installed in the image",
+    "when": [
+      {
+        "fact": "installed_tools.found",
+        "op": "nonEmpty"
+      }
+    ],
+    "evidence": {
+      "confirmed": "{{installed_tools.found_summary}}"
+    },
+    "risk": "Confirmed: these binaries exist in the image. Tool presence alone does not prove the identity available to them can change anything; it only lowers the effort for code running here to use whatever identity the container turns out to have.",
+    "unverified": "Whether any identity usable by these tools exists and what it can do.",
+    "verify": "Together with the AWS-IDENTITY findings, from outside.",
+    "recommendation": "Remove tooling the workload does not need from production images; prefer distroless or minimal bases."
+  }
+]

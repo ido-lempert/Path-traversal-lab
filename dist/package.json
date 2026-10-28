@@ -1,0 +1,14 @@
+{
+  "name": "container-security-inspector",
+  "version": "0.1.0",
+  "description": "Local read-only container security audit: shows what code running inside a container can see and do. JSON + HTML report.",
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=18" },
+  "bin": { "csi": "bin/csi.js" },
+  "scripts": {
+    "audit": "node bin/csi.js audit",
+    "demo": "sh demo/prepare-fixture.sh && node bin/csi.js audit --fixture demo/fixtures/sample-container --out demo/out",
+    "test": "sh demo/prepare-fixture.sh && node --test test/*.test.js"
+  }
+}
